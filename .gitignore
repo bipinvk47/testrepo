@@ -1,0 +1,22 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+*.userosscache
+.idea/
+
+# NuGet
+*.nupkg
+**/packages/
+project.lock.json
+
+# .NET tooling
+*.DotSettings.user
