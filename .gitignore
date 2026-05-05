@@ -1,22 +1,28 @@
-# Build results
-[Dd]ebug/
-[Rr]elease/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Visual Studio / Rider
-.vs/
-*.user
-*.suo
-*.userosscache
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing / tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
 .idea/
-
-# NuGet
-*.nupkg
-**/packages/
-project.lock.json
-
-# .NET tooling
-*.DotSettings.user
+.vscode/
+*.swp
+.DS_Store
