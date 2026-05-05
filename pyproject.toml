@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "complexity-sample"
+version = "0.1.0"
+description = "Sample Python code for static analysis demos (complexity and duplication)."
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
