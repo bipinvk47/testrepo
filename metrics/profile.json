@@ -1,27 +1,21 @@
 {
-  "branch_label": "main",
-  "metric_profile": "baseline_full",
+  "branch_label": "feature/alpha-branch",
+  "metric_profile": "readability_lightweight",
   "metric_focus": [
-    "balanced cyclomatic and nesting view",
-    "halstead volume estimate",
-    "comment and LOC hygiene"
+    "readability proxy (lower complexity wins)",
+    "nesting depth averages",
+    "logical LOC and function inventory only"
   ],
   "metric_keys": [
-    "lines_of_code_physical",
-    "lines_of_code_logical",
-    "comment_density",
-    "function_count",
-    "file_count",
+    "readability_proxy_score",
     "avg_cyclomatic_complexity",
-    "max_cyclomatic_complexity",
-    "sum_cyclomatic_complexity",
-    "avg_max_nesting_per_function",
     "max_nesting_depth",
-    "halstead_avg_volume_est",
-    "halstead_total_volume_est",
-    "readability_proxy_score"
+    "avg_max_nesting_per_function",
+    "lines_of_code_logical",
+    "function_count",
+    "file_count"
   ],
   "notes": [
-    "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set."
+    "Alpha rewrites the tiered discount path to reduce branching; report omits halstead/duplicate clusters."
   ]
 }
