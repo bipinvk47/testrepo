@@ -1,0 +1,27 @@
+{
+  "branch_label": "main",
+  "metric_profile": "baseline_full",
+  "metric_focus": [
+    "balanced cyclomatic and nesting view",
+    "halstead volume estimate",
+    "comment and LOC hygiene"
+  ],
+  "metric_keys": [
+    "lines_of_code_physical",
+    "lines_of_code_logical",
+    "comment_density",
+    "function_count",
+    "file_count",
+    "avg_cyclomatic_complexity",
+    "max_cyclomatic_complexity",
+    "sum_cyclomatic_complexity",
+    "avg_max_nesting_per_function",
+    "max_nesting_depth",
+    "halstead_avg_volume_est",
+    "halstead_total_volume_est",
+    "readability_proxy_score"
+  ],
+  "notes": [
+    "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set."
+  ]
+}
