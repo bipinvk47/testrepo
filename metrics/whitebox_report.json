@@ -1,44 +1,34 @@
 {
   "schema_version": 1,
-  "git_branch": "main",
+  "git_branch": "feature/beta-branch",
   "package": "src/complexity_sample",
-  "metric_profile": "baseline_full",
+  "metric_profile": "branching_halstead_stress",
   "metric_focus": [
-    "balanced cyclomatic and nesting view",
-    "halstead volume estimate",
-    "comment and LOC hygiene"
+    "decision points per logical hundred lines",
+    "halstead-style volume totals",
+    "peak and aggregate cyclomatic pressure"
   ],
   "included_metrics": [
-    "lines_of_code_physical",
-    "lines_of_code_logical",
-    "comment_density",
-    "function_count",
-    "file_count",
-    "avg_cyclomatic_complexity",
+    "decision_points_per_100_loc",
     "max_cyclomatic_complexity",
     "sum_cyclomatic_complexity",
-    "avg_max_nesting_per_function",
-    "max_nesting_depth",
-    "halstead_avg_volume_est",
+    "total_decision_points",
     "halstead_total_volume_est",
-    "readability_proxy_score"
+    "halstead_avg_volume_est",
+    "avg_cyclomatic_complexity",
+    "lines_of_code_logical"
   ],
   "scores": {
-    "lines_of_code_physical": 536,
-    "lines_of_code_logical": 475,
-    "comment_density": 0.0,
-    "function_count": 11,
-    "file_count": 8,
-    "avg_cyclomatic_complexity": 17.36,
+    "decision_points_per_100_loc": 37.89,
     "max_cyclomatic_complexity": 29,
-    "sum_cyclomatic_complexity": 191,
-    "avg_max_nesting_per_function": 5.18,
-    "max_nesting_depth": 8,
-    "halstead_avg_volume_est": 583.98,
-    "halstead_total_volume_est": 6423.73,
-    "readability_proxy_score": 33.2
+    "sum_cyclomatic_complexity": 220,
+    "total_decision_points": 208,
+    "halstead_total_volume_est": 7194.41,
+    "halstead_avg_volume_est": 599.53,
+    "avg_cyclomatic_complexity": 18.33,
+    "lines_of_code_logical": 549
   },
   "notes": [
-    "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set."
+    "Beta adds a dense eligibility audit helper so halstead and branching metrics diverge sharply from other branches."
   ]
 }

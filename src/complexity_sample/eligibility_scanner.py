@@ -97,3 +97,83 @@ def compute_eligibility_score(
             score += 3
 
     return score
+
+
+def beta_extra_decision_surface(
+    channel_code: str | None,
+    promo_tier: int,
+    inventory_risk: int,
+    ship_region: str | None,
+) -> int:
+    """Beta-only: wide branch matrix to lift cyclomatic and decision-density metrics."""
+    pts = 0
+    if channel_code is None:
+        pts -= 2
+    elif channel_code == "WEB":
+        pts += 1
+    elif channel_code == "MOB":
+        pts += 2
+    elif channel_code == "POS":
+        pts += 3
+    elif channel_code == "B2B":
+        pts += 4
+    elif channel_code == "MKT":
+        pts += 5
+    elif channel_code == "SOC":
+        pts += 1
+    elif channel_code == "REF":
+        pts += 2
+    elif channel_code == "AFF":
+        pts += 3
+    elif channel_code == "DIR":
+        pts += 4
+    else:
+        pts += 0
+
+    if promo_tier < 0:
+        pts -= 1
+    elif promo_tier == 0:
+        pts += 0
+    elif promo_tier == 1:
+        pts += 1
+    elif promo_tier == 2:
+        pts += 2
+    elif promo_tier == 3:
+        pts += 4
+    elif promo_tier == 4:
+        pts += 6
+    else:
+        pts += 8
+
+    if inventory_risk > 90:
+        if promo_tier > 2:
+            pts -= 4
+        elif promo_tier > 0:
+            pts -= 2
+        else:
+            pts -= 1
+    elif inventory_risk > 50:
+        pts += 1 if channel_code == "WEB" else 0
+    elif inventory_risk > 20:
+        pts += 2
+    else:
+        pts += 3
+
+    if ship_region is None:
+        pts += 0
+    else:
+        match ship_region.casefold():
+            case "na-east" | "na-west":
+                pts += 2
+            case "eu-north" | "eu-south":
+                pts += 1
+            case "apac":
+                pts += 3
+            case "latam":
+                pts += 2
+            case "mea":
+                pts += 1
+            case _:
+                pts -= 1
+
+    return pts

@@ -1,27 +1,22 @@
 {
-  "branch_label": "main",
-  "metric_profile": "baseline_full",
+  "branch_label": "feature/beta-branch",
+  "metric_profile": "branching_halstead_stress",
   "metric_focus": [
-    "balanced cyclomatic and nesting view",
-    "halstead volume estimate",
-    "comment and LOC hygiene"
+    "decision points per logical hundred lines",
+    "halstead-style volume totals",
+    "peak and aggregate cyclomatic pressure"
   ],
   "metric_keys": [
-    "lines_of_code_physical",
-    "lines_of_code_logical",
-    "comment_density",
-    "function_count",
-    "file_count",
-    "avg_cyclomatic_complexity",
+    "decision_points_per_100_loc",
     "max_cyclomatic_complexity",
     "sum_cyclomatic_complexity",
-    "avg_max_nesting_per_function",
-    "max_nesting_depth",
-    "halstead_avg_volume_est",
+    "total_decision_points",
     "halstead_total_volume_est",
-    "readability_proxy_score"
+    "halstead_avg_volume_est",
+    "avg_cyclomatic_complexity",
+    "lines_of_code_logical"
   ],
   "notes": [
-    "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set."
+    "Beta adds a dense eligibility audit helper so halstead and branching metrics diverge sharply from other branches."
   ]
 }
