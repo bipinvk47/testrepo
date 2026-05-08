@@ -1,44 +1,41 @@
 {
   "schema_version": 1,
-  "git_branch": "main",
+  "git_branch": "dev",
   "package": "src/complexity_sample",
-  "metric_profile": "baseline_full",
+  "metric_profile": "integration_duplicate_surface",
   "metric_focus": [
-    "balanced cyclomatic and nesting view",
-    "halstead volume estimate",
-    "comment and LOC hygiene"
+    "cross-file duplicate line clusters",
+    "aggregate decision pressure",
+    "raw comment and LOC signals"
   ],
   "included_metrics": [
+    "duplicate_line_cluster_score",
+    "total_decision_points",
     "lines_of_code_physical",
     "lines_of_code_logical",
+    "comment_line_count",
     "comment_density",
     "function_count",
     "file_count",
     "avg_cyclomatic_complexity",
     "max_cyclomatic_complexity",
-    "sum_cyclomatic_complexity",
-    "avg_max_nesting_per_function",
-    "max_nesting_depth",
-    "halstead_avg_volume_est",
-    "halstead_total_volume_est",
-    "readability_proxy_score"
+    "sum_cyclomatic_complexity"
   ],
   "scores": {
-    "lines_of_code_physical": 536,
-    "lines_of_code_logical": 475,
+    "duplicate_line_cluster_score": 38.03,
+    "total_decision_points": 198,
+    "lines_of_code_physical": 589,
+    "lines_of_code_logical": 526,
+    "comment_line_count": 0,
     "comment_density": 0.0,
-    "function_count": 11,
-    "file_count": 8,
-    "avg_cyclomatic_complexity": 17.36,
+    "function_count": 12,
+    "file_count": 9,
+    "avg_cyclomatic_complexity": 17.5,
     "max_cyclomatic_complexity": 29,
-    "sum_cyclomatic_complexity": 191,
-    "avg_max_nesting_per_function": 5.18,
-    "max_nesting_depth": 8,
-    "halstead_avg_volume_est": 583.98,
-    "halstead_total_volume_est": 6423.73,
-    "readability_proxy_score": 33.2
+    "sum_cyclomatic_complexity": 210
   },
   "notes": [
-    "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set."
+    "Dev stresses duplication-style white-box signals alongside branch/decision totals.",
+    "Includes an intentional mirrored pricing block to lift duplicate_line_cluster_score."
   ]
 }

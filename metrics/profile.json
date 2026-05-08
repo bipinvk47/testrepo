@@ -1,27 +1,26 @@
 {
-  "branch_label": "main",
-  "metric_profile": "baseline_full",
+  "branch_label": "dev",
+  "metric_profile": "integration_duplicate_surface",
   "metric_focus": [
-    "balanced cyclomatic and nesting view",
-    "halstead volume estimate",
-    "comment and LOC hygiene"
+    "cross-file duplicate line clusters",
+    "aggregate decision pressure",
+    "raw comment and LOC signals"
   ],
   "metric_keys": [
+    "duplicate_line_cluster_score",
+    "total_decision_points",
     "lines_of_code_physical",
     "lines_of_code_logical",
+    "comment_line_count",
     "comment_density",
     "function_count",
     "file_count",
     "avg_cyclomatic_complexity",
     "max_cyclomatic_complexity",
-    "sum_cyclomatic_complexity",
-    "avg_max_nesting_per_function",
-    "max_nesting_depth",
-    "halstead_avg_volume_est",
-    "halstead_total_volume_est",
-    "readability_proxy_score"
+    "sum_cyclomatic_complexity"
   ],
   "notes": [
-    "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set."
+    "Dev stresses duplication-style white-box signals alongside branch/decision totals.",
+    "Includes an intentional mirrored pricing block to lift duplicate_line_cluster_score."
   ]
 }
