@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute white-box metric snapshots for src/complexity_sample (no third-party deps)."""
+"""Compute white-box metric snapshots for multi-language packages (Python + JavaScript; no third-party deps)."""
 
 from __future__ import annotations
 
@@ -202,6 +202,116 @@ def _line_stats(source: str) -> tuple[int, int, int]:
     return physical, logical, comments
 
 
+def _js_line_stats(source: str) -> tuple[int, int, int]:
+    physical = len(source.splitlines())
+    without_blocks = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    logical = 0
+    comments = 0
+    for line in without_blocks.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("//"):
+            comments += 1
+            continue
+        if "//" in line:
+            pre, _post = line.split("//", 1)
+            if pre.strip():
+                logical += 1
+            else:
+                comments += 1
+        else:
+            logical += 1
+    return physical, logical, comments
+
+
+def _skip_balanced_paren(s: str, open_idx: int) -> int:
+    if open_idx < 0 or open_idx >= len(s) or s[open_idx] != "(":
+        return -1
+    depth = 0
+    i = open_idx
+    while i < len(s):
+        if s[i] == "(":
+            depth += 1
+        elif s[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+def _find_matching_brace(s: str, brace_open_idx: int) -> int:
+    depth = 0
+    i = brace_open_idx
+    while i < len(s):
+        if s[i] == "{":
+            depth += 1
+        elif s[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+_JS_FUNC_HEAD = re.compile(r"\bfunction\s+([A-Za-z_$][\w$]*)\s*\(")
+
+
+def _iter_js_function_bodies(source: str) -> list[tuple[str, str]]:
+    bodies: list[tuple[str, str]] = []
+    for m in _JS_FUNC_HEAD.finditer(source):
+        name = m.group(1)
+        open_paren = source.find("(", m.start())
+        close_paren = _skip_balanced_paren(source, open_paren)
+        if close_paren < 0:
+            continue
+        i = close_paren + 1
+        while i < len(source) and source[i] in " \t\r\n":
+            i += 1
+        if i >= len(source) or source[i] != "{":
+            continue
+        close_brace = _find_matching_brace(source, i)
+        if close_brace < 0:
+            continue
+        bodies.append((name, source[i + 1 : close_brace]))
+    return bodies
+
+
+def _halstead_estimates_js(body: str) -> tuple[int, int]:
+    operators = len(re.findall(r"\+\+|--|&&|\|\||[+\-*/%=<>!?:]+", body))
+    identifiers = len(re.findall(r"\b[A-Za-z_$][\w$]*\b", body))
+    numeric = len(re.findall(r"\b\d+\.?\d*\b", body))
+    operands = identifiers + numeric
+    return operators, operands
+
+
+def _js_cyclomatic(body: str) -> int:
+    decisions = 0
+    decisions += len(re.findall(r"\bif\s*\(", body))
+    decisions += len(re.findall(r"\belse\s+if\s*\(", body))
+    decisions += len(re.findall(r"\bwhile\s*\(", body))
+    decisions += len(re.findall(r"\bfor\s*\(", body))
+    decisions += len(re.findall(r"\bcatch\s*\(", body))
+    decisions += len(re.findall(r"\bcase\s+[^:]+:", body))
+    decisions += len(re.findall(r"\?", body))
+    decisions += len(re.findall(r"&&", body))
+    decisions += len(re.findall(r"\|\|", body))
+    return 1 + decisions
+
+
+def _js_max_brace_nesting(body: str) -> int:
+    depth = 0
+    max_d = 0
+    for c in body:
+        if c == "{":
+            depth += 1
+            max_d = max(max_d, depth)
+        elif c == "}":
+            depth = max(0, depth - 1)
+    return max_d
+
+
 def _analyze_file(path: Path, root: Path) -> FileStats:
     raw = path.read_text(encoding="utf-8")
     physical, logical, comment_lines = _line_stats(raw)
@@ -241,6 +351,39 @@ def _analyze_file(path: Path, root: Path) -> FileStats:
     return stats
 
 
+def _analyze_js_file(path: Path, root: Path) -> FileStats:
+    raw = path.read_text(encoding="utf-8")
+    physical, logical, comment_lines = _js_line_stats(raw)
+    try:
+        rel = str(path.relative_to(root).as_posix())
+    except ValueError:
+        rel = str(path.as_posix())
+
+    stats = FileStats(
+        path=rel,
+        physical_lines=physical,
+        logical_lines=logical,
+        comment_lines=comment_lines,
+    )
+    for name, body in _iter_js_function_bodies(raw):
+        cyc = _js_cyclomatic(body)
+        nest = _js_max_brace_nesting(body)
+        n1, n2 = _halstead_estimates_js(body)
+        n = n1 + n2
+        volume = float(n * __import__("math").log2(max(2.0, float(n))))
+        stats.functions.append(
+            {
+                "name": name,
+                "cyclomatic_complexity": cyc,
+                "max_nesting_depth": nest,
+                "halstead_operators_est": n1,
+                "halstead_operands_est": n2,
+                "halstead_volume_est": round(volume, 2),
+            }
+        )
+    return stats
+
+
 def _duplicate_line_score(files: list[Path]) -> float:
     line_map: dict[str, list[str]] = defaultdict(list)
     for fp in files:
@@ -256,10 +399,7 @@ def _duplicate_line_score(files: list[Path]) -> float:
     return round(100.0 * dup_lines / total_keyed, 2)
 
 
-def analyze_package(pkg: Path, root: Path) -> dict:
-    py_files = sorted(pkg.rglob("*.py"))
-    file_stats = [_analyze_file(p, root) for p in py_files]
-
+def _aggregate_metrics(file_stats: list[FileStats], dup_targets: list[Path]) -> dict:
     all_funcs = [f for fs in file_stats for f in fs.functions]
     cyclos = [f["cyclomatic_complexity"] for f in all_funcs]
     nestings = [f["max_nesting_depth"] for f in all_funcs]
@@ -269,7 +409,8 @@ def analyze_package(pkg: Path, root: Path) -> dict:
     loc_logical = sum(fs.logical_lines for fs in file_stats)
     comments = sum(fs.comment_lines for fs in file_stats)
 
-    dup_score = _duplicate_line_score(py_files)
+    py_js_files = sorted(dup_targets)
+    dup_score = _duplicate_line_score(py_js_files) if py_js_files else 0.0
     decision_sum = sum(c - 1 for c in cyclos)
     avg_cyc = round(sum(cyclos) / len(cyclos), 2) if cyclos else 0.0
     max_cyc = max(cyclos) if cyclos else 0
@@ -287,13 +428,15 @@ def analyze_package(pkg: Path, root: Path) -> dict:
 
     decision_per_100_loc = round((decision_sum / max(1, loc_logical)) * 100, 2)
 
+    file_count = len({fs.path for fs in file_stats})
+
     return {
         "lines_of_code_physical": loc_physical,
         "lines_of_code_logical": loc_logical,
         "comment_line_count": comments,
         "comment_density": comment_density,
         "function_count": len(all_funcs),
-        "file_count": len(py_files),
+        "file_count": file_count,
         "avg_cyclomatic_complexity": avg_cyc,
         "max_cyclomatic_complexity": max_cyc,
         "sum_cyclomatic_complexity": sum(cyclos),
@@ -318,6 +461,21 @@ def analyze_package(pkg: Path, root: Path) -> dict:
     }
 
 
+def analyze_package(pkg: Path, root: Path) -> dict:
+    py_files = sorted(pkg.rglob("*.py"))
+    file_stats = [_analyze_file(p, root) for p in py_files]
+    return _aggregate_metrics(file_stats, py_files)
+
+
+def analyze_repo(py_pkg: Path, js_pkg: Path | None, root: Path) -> tuple[dict, list[Path], list[Path]]:
+    py_files = sorted(py_pkg.rglob("*.py")) if py_pkg.is_dir() else []
+    js_files = sorted(js_pkg.rglob("*.js")) if js_pkg and js_pkg.is_dir() else []
+    combined_stats = [_analyze_file(p, root) for p in py_files]
+    combined_stats.extend(_analyze_js_file(p, root) for p in js_files)
+    full = _aggregate_metrics(combined_stats, [*py_files, *js_files])
+    return full, py_files, js_files
+
+
 def load_profile(root: Path) -> dict:
     path = root / "metrics" / "profile.json"
     if not path.is_file():
@@ -327,6 +485,13 @@ def load_profile(root: Path) -> dict:
     if not keys:
         data["metric_keys"] = list(_ALL_METRIC_KEYS)
     return data
+
+
+def _rel_posix(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root).as_posix())
+    except ValueError:
+        return str(path.as_posix())
 
 
 _ALL_METRIC_KEYS = (
@@ -354,29 +519,58 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="White-box metrics snapshot")
     ap.add_argument("--root", type=Path, default=Path("."), help="Repo root")
     ap.add_argument("--pkg", type=Path, default=Path("src/complexity_sample"))
+    ap.add_argument(
+        "--js-pkg",
+        type=Path,
+        default=None,
+        help="JavaScript package dir (default: src/complexity_sample_js when it exists)",
+    )
     ap.add_argument("-o", "--out", type=Path, default=None, help="Write JSON file")
     args = ap.parse_args()
 
     root = args.root.resolve()
-    pkg = (root / args.pkg).resolve()
-    if not pkg.is_dir():
-        raise SystemExit(f"Package not found: {pkg}")
+    py_pkg = (root / args.pkg).resolve()
+    if not py_pkg.is_dir():
+        raise SystemExit(f"Package not found: {py_pkg}")
+
+    if args.js_pkg is None:
+        js_cand = (root / "src" / "complexity_sample_js").resolve()
+        js_pkg = js_cand if js_cand.is_dir() else None
+    else:
+        js_pkg = (root / args.js_pkg).resolve()
+        if not js_pkg.is_dir():
+            raise SystemExit(f"JavaScript package not found: {js_pkg}")
 
     profile = load_profile(root)
     metric_keys = profile.get("metric_keys") or list(_ALL_METRIC_KEYS)
 
     branch = profile.get("branch_label") or _git_branch(root)
-    full = analyze_package(pkg, root)
-    scores = {k: full[k] for k in metric_keys if k in full}
+    full, py_files, js_files = analyze_repo(py_pkg, js_pkg, root)
+    scores = {k: v for k, v in full.items() if k != "by_file"}
+
+    by_language: dict[str, dict] = {}
+    if py_files:
+        py_metrics = _aggregate_metrics([_analyze_file(p, root) for p in py_files], py_files)
+        by_language["python"] = {k: v for k, v in py_metrics.items() if k != "by_file"}
+    if js_files:
+        js_metrics = _aggregate_metrics([_analyze_js_file(p, root) for p in js_files], js_files)
+        by_language["javascript"] = {k: v for k, v in js_metrics.items() if k != "by_file"}
+
+    pkgs: dict[str, str] = {"python": _rel_posix(py_pkg, root)}
+    if js_pkg is not None and js_files:
+        pkgs["javascript"] = _rel_posix(js_pkg, root)
 
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "git_branch": branch,
+        "packages": pkgs,
         "package": str(args.pkg.as_posix()),
         "metric_profile": profile.get("metric_profile", "default"),
         "metric_focus": profile.get("metric_focus", []),
-        "included_metrics": list(scores.keys()),
-        "scores": scores,
+        "profile_metric_keys": metric_keys,
+        "included_metrics": sorted(scores.keys()),
+        "scores": dict(sorted(scores.items())),
+        "by_language": by_language,
         "notes": profile.get("notes", []),
     }
 

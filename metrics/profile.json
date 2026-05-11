@@ -21,6 +21,7 @@
   ],
   "notes": [
     "Dev stresses duplication-style white-box signals alongside branch/decision totals.",
-    "Includes an intentional mirrored pricing block to lift duplicate_line_cluster_score."
+    "Includes an intentional mirrored pricing block to lift duplicate_line_cluster_score.",
+    "JavaScript twin package src/complexity_sample_js is included for multilingual white-box snapshots."
   ]
 }
