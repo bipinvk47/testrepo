@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute white-box metric snapshots for multi-language packages (Python + JavaScript; no third-party deps)."""
+"""Compute white-box metric snapshots for six-language samples (Python, JS, TS, C#, Java, Go; no third-party deps)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 
 def _git_branch(root: Path) -> str:
@@ -255,12 +256,62 @@ def _find_matching_brace(s: str, brace_open_idx: int) -> int:
     return -1
 
 
-_JS_FUNC_HEAD = re.compile(r"\bfunction\s+([A-Za-z_$][\w$]*)\s*\(")
+_JS_FUNC_HEAD = re.compile(
+    r"\b(?:export\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(",
+    re.MULTILINE,
+)
+
+_JVM_CLR_METHOD = re.compile(
+    r"\bpublic\s+static\s+[\w.]+\s+(\w+)\s*\(",
+    re.MULTILINE,
+)
+
+_GO_FUNC_HEAD = re.compile(r"\bfunc\s+([A-Za-z_][\w]*)\s*\(", re.MULTILINE)
 
 
 def _iter_js_function_bodies(source: str) -> list[tuple[str, str]]:
     bodies: list[tuple[str, str]] = []
     for m in _JS_FUNC_HEAD.finditer(source):
+        name = m.group(1)
+        open_paren = source.find("(", m.start())
+        close_paren = _skip_balanced_paren(source, open_paren)
+        if close_paren < 0:
+            continue
+        i = close_paren + 1
+        while i < len(source) and source[i] in " \t\r\n":
+            i += 1
+        if i >= len(source) or source[i] != "{":
+            continue
+        close_brace = _find_matching_brace(source, i)
+        if close_brace < 0:
+            continue
+        bodies.append((name, source[i + 1 : close_brace]))
+    return bodies
+
+
+def _iter_public_static_method_bodies(source: str) -> list[tuple[str, str]]:
+    bodies: list[tuple[str, str]] = []
+    for m in _JVM_CLR_METHOD.finditer(source):
+        name = m.group(1)
+        open_paren = source.find("(", m.start())
+        close_paren = _skip_balanced_paren(source, open_paren)
+        if close_paren < 0:
+            continue
+        i = close_paren + 1
+        while i < len(source) and source[i] in " \t\r\n":
+            i += 1
+        if i >= len(source) or source[i] != "{":
+            continue
+        close_brace = _find_matching_brace(source, i)
+        if close_brace < 0:
+            continue
+        bodies.append((name, source[i + 1 : close_brace]))
+    return bodies
+
+
+def _iter_go_function_bodies(source: str) -> list[tuple[str, str]]:
+    bodies: list[tuple[str, str]] = []
+    for m in _GO_FUNC_HEAD.finditer(source):
         name = m.group(1)
         open_paren = source.find("(", m.start())
         close_paren = _skip_balanced_paren(source, open_paren)
@@ -286,15 +337,27 @@ def _halstead_estimates_js(body: str) -> tuple[int, int]:
     return operators, operands
 
 
-def _js_cyclomatic(body: str) -> int:
+def _c_family_cyclomatic(body: str) -> int:
     decisions = 0
     decisions += len(re.findall(r"\bif\s*\(", body))
     decisions += len(re.findall(r"\belse\s+if\s*\(", body))
     decisions += len(re.findall(r"\bwhile\s*\(", body))
     decisions += len(re.findall(r"\bfor\s*\(", body))
+    decisions += len(re.findall(r"\bforeach\s*\(", body))
     decisions += len(re.findall(r"\bcatch\s*\(", body))
     decisions += len(re.findall(r"\bcase\s+[^:]+:", body))
     decisions += len(re.findall(r"\?", body))
+    decisions += len(re.findall(r"&&", body))
+    decisions += len(re.findall(r"\|\|", body))
+    return 1 + decisions
+
+
+def _go_cyclomatic(body: str) -> int:
+    decisions = 0
+    decisions += len(re.findall(r"\bif\b", body))
+    decisions += len(re.findall(r"\bfor\b", body))
+    decisions += len(re.findall(r"\bswitch\b", body))
+    decisions += len(re.findall(r"\bcase\s+", body))
     decisions += len(re.findall(r"&&", body))
     decisions += len(re.findall(r"\|\|", body))
     return 1 + decisions
@@ -351,7 +414,7 @@ def _analyze_file(path: Path, root: Path) -> FileStats:
     return stats
 
 
-def _analyze_js_file(path: Path, root: Path) -> FileStats:
+def _analyze_js_like_file(path: Path, root: Path) -> FileStats:
     raw = path.read_text(encoding="utf-8")
     physical, logical, comment_lines = _js_line_stats(raw)
     try:
@@ -366,7 +429,7 @@ def _analyze_js_file(path: Path, root: Path) -> FileStats:
         comment_lines=comment_lines,
     )
     for name, body in _iter_js_function_bodies(raw):
-        cyc = _js_cyclomatic(body)
+        cyc = _c_family_cyclomatic(body)
         nest = _js_max_brace_nesting(body)
         n1, n2 = _halstead_estimates_js(body)
         n = n1 + n2
@@ -384,12 +447,86 @@ def _analyze_js_file(path: Path, root: Path) -> FileStats:
     return stats
 
 
+def _analyze_ts_file(path: Path, root: Path) -> FileStats:
+    return _analyze_js_like_file(path, root)
+
+
+def _analyze_java_csharp_file(path: Path, root: Path) -> FileStats:
+    raw = path.read_text(encoding="utf-8")
+    physical, logical, comment_lines = _js_line_stats(raw)
+    try:
+        rel = str(path.relative_to(root).as_posix())
+    except ValueError:
+        rel = str(path.as_posix())
+
+    stats = FileStats(
+        path=rel,
+        physical_lines=physical,
+        logical_lines=logical,
+        comment_lines=comment_lines,
+    )
+    for name, body in _iter_public_static_method_bodies(raw):
+        cyc = _c_family_cyclomatic(body)
+        nest = _js_max_brace_nesting(body)
+        n1, n2 = _halstead_estimates_js(body)
+        n = n1 + n2
+        volume = float(n * __import__("math").log2(max(2.0, float(n))))
+        stats.functions.append(
+            {
+                "name": name,
+                "cyclomatic_complexity": cyc,
+                "max_nesting_depth": nest,
+                "halstead_operators_est": n1,
+                "halstead_operands_est": n2,
+                "halstead_volume_est": round(volume, 2),
+            }
+        )
+    return stats
+
+
+def _analyze_go_file(path: Path, root: Path) -> FileStats:
+    raw = path.read_text(encoding="utf-8")
+    physical, logical, comment_lines = _js_line_stats(raw)
+    try:
+        rel = str(path.relative_to(root).as_posix())
+    except ValueError:
+        rel = str(path.as_posix())
+
+    stats = FileStats(
+        path=rel,
+        physical_lines=physical,
+        logical_lines=logical,
+        comment_lines=comment_lines,
+    )
+    for name, body in _iter_go_function_bodies(raw):
+        cyc = _go_cyclomatic(body)
+        nest = _js_max_brace_nesting(body)
+        n1, n2 = _halstead_estimates_js(body)
+        n = n1 + n2
+        volume = float(n * __import__("math").log2(max(2.0, float(n))))
+        stats.functions.append(
+            {
+                "name": name,
+                "cyclomatic_complexity": cyc,
+                "max_nesting_depth": nest,
+                "halstead_operators_est": n1,
+                "halstead_operands_est": n2,
+                "halstead_volume_est": round(volume, 2),
+            }
+        )
+    return stats
+
+
+def _analyze_js_file(path: Path, root: Path) -> FileStats:
+    return _analyze_js_like_file(path, root)
+
+
 def _duplicate_line_score(files: list[Path]) -> float:
     line_map: dict[str, list[str]] = defaultdict(list)
     for fp in files:
         for i, line in enumerate(fp.read_text(encoding="utf-8").splitlines(), 1):
             key = re.sub(r"\s+", " ", line.strip())
-            if len(key) < 12 or key.startswith("#"):
+            if len(key) < 12 or key.startswith("#") or key.startswith("//") or key.startswith("*"):
                 continue
             line_map[key].append(f"{fp.name}:{i}")
     dup_lines = sum(1 for _ln, locs in line_map.items() if len(locs) > 1)
@@ -467,13 +604,47 @@ def analyze_package(pkg: Path, root: Path) -> dict:
     return _aggregate_metrics(file_stats, py_files)
 
 
-def analyze_repo(py_pkg: Path, js_pkg: Path | None, root: Path) -> tuple[dict, list[Path], list[Path]]:
+def analyze_repo(
+    root: Path,
+    py_pkg: Path,
+    javascript_pkg: Path | None,
+) -> tuple[dict, dict[str, list[Path]]]:
+    combined: list[FileStats] = []
+    dup_targets: list[Path] = []
+    by_lang: dict[str, list[Path]] = {}
+
     py_files = sorted(py_pkg.rglob("*.py")) if py_pkg.is_dir() else []
-    js_files = sorted(js_pkg.rglob("*.js")) if js_pkg and js_pkg.is_dir() else []
-    combined_stats = [_analyze_file(p, root) for p in py_files]
-    combined_stats.extend(_analyze_js_file(p, root) for p in js_files)
-    full = _aggregate_metrics(combined_stats, [*py_files, *js_files])
-    return full, py_files, js_files
+    if py_files:
+        by_lang["python"] = py_files
+        dup_targets.extend(py_files)
+        combined.extend(_analyze_file(p, root) for p in py_files)
+
+    lang_specs: list[tuple[str, Path, str, Callable[[Path, Path], FileStats]]] = []
+    if javascript_pkg is not None and javascript_pkg.is_dir():
+        lang_specs.append(("javascript", javascript_pkg, "*.js", _analyze_js_like_file))
+    ts_root = root / "src" / "complexity_sample_ts"
+    if ts_root.is_dir():
+        lang_specs.append(("typescript", ts_root, "*.ts", _analyze_ts_file))
+    cs_root = root / "src" / "complexity_sample_cs"
+    if cs_root.is_dir():
+        lang_specs.append(("csharp", cs_root, "*.cs", _analyze_java_csharp_file))
+    java_root = root / "src" / "complexity_sample_java"
+    if java_root.is_dir():
+        lang_specs.append(("java", java_root, "*.java", _analyze_java_csharp_file))
+    go_root = root / "src" / "complexity_sample_go"
+    if go_root.is_dir():
+        lang_specs.append(("go", go_root, "*.go", _analyze_go_file))
+
+    for label, base, pattern, analyzer in lang_specs:
+        paths = sorted(base.rglob(pattern))
+        if not paths:
+            continue
+        by_lang[label] = paths
+        dup_targets.extend(paths)
+        combined.extend(analyzer(p, root) for p in paths)
+
+    full = _aggregate_metrics(combined, dup_targets)
+    return full, by_lang
 
 
 def load_profile(root: Path) -> dict:
@@ -523,7 +694,7 @@ def main() -> None:
         "--js-pkg",
         type=Path,
         default=None,
-        help="JavaScript package dir (default: src/complexity_sample_js when it exists)",
+        help="Optional JavaScript package dir (default: src/complexity_sample_js when it exists)",
     )
     ap.add_argument("-o", "--out", type=Path, default=None, help="Write JSON file")
     args = ap.parse_args()
@@ -535,33 +706,56 @@ def main() -> None:
 
     if args.js_pkg is None:
         js_cand = (root / "src" / "complexity_sample_js").resolve()
-        js_pkg = js_cand if js_cand.is_dir() else None
+        javascript_pkg = js_cand if js_cand.is_dir() else None
     else:
-        js_pkg = (root / args.js_pkg).resolve()
-        if not js_pkg.is_dir():
-            raise SystemExit(f"JavaScript package not found: {js_pkg}")
+        javascript_pkg = (root / args.js_pkg).resolve()
+        if not javascript_pkg.is_dir():
+            raise SystemExit(f"JavaScript package not found: {javascript_pkg}")
 
     profile = load_profile(root)
     metric_keys = profile.get("metric_keys") or list(_ALL_METRIC_KEYS)
 
     branch = profile.get("branch_label") or _git_branch(root)
-    full, py_files, js_files = analyze_repo(py_pkg, js_pkg, root)
+    full, by_lang_files = analyze_repo(root, py_pkg, javascript_pkg)
     scores = {k: v for k, v in full.items() if k != "by_file"}
 
     by_language: dict[str, dict] = {}
-    if py_files:
-        py_metrics = _aggregate_metrics([_analyze_file(p, root) for p in py_files], py_files)
-        by_language["python"] = {k: v for k, v in py_metrics.items() if k != "by_file"}
-    if js_files:
-        js_metrics = _aggregate_metrics([_analyze_js_file(p, root) for p in js_files], js_files)
-        by_language["javascript"] = {k: v for k, v in js_metrics.items() if k != "by_file"}
+    for label, paths in sorted(by_lang_files.items()):
+        if not paths:
+            continue
+        if label == "python":
+            part = _aggregate_metrics([_analyze_file(p, root) for p in paths], paths)
+        elif label == "javascript":
+            part = _aggregate_metrics([_analyze_js_like_file(p, root) for p in paths], paths)
+        elif label == "typescript":
+            part = _aggregate_metrics([_analyze_ts_file(p, root) for p in paths], paths)
+        elif label in ("csharp", "java"):
+            part = _aggregate_metrics([_analyze_java_csharp_file(p, root) for p in paths], paths)
+        elif label == "go":
+            part = _aggregate_metrics([_analyze_go_file(p, root) for p in paths], paths)
+        else:
+            continue
+        by_language[label] = {k: v for k, v in part.items() if k != "by_file"}
 
     pkgs: dict[str, str] = {"python": _rel_posix(py_pkg, root)}
-    if js_pkg is not None and js_files:
-        pkgs["javascript"] = _rel_posix(js_pkg, root)
+    if javascript_pkg is not None:
+        pkgs["javascript"] = _rel_posix(javascript_pkg, root)
+    ts_root = root / "src" / "complexity_sample_ts"
+    if ts_root.is_dir():
+        pkgs["typescript"] = _rel_posix(ts_root, root)
+    cs_root = root / "src" / "complexity_sample_cs"
+    if cs_root.is_dir():
+        pkgs["csharp"] = _rel_posix(cs_root, root)
+    java_root = root / "src" / "complexity_sample_java"
+    if java_root.is_dir():
+        pkgs["java"] = _rel_posix(java_root, root)
+    go_root = root / "src" / "complexity_sample_go"
+    if go_root.is_dir():
+        pkgs["go"] = _rel_posix(go_root, root)
 
     report = {
-        "schema_version": 2,
+        "schema_version": 3,
+        "languages": sorted(by_lang_files.keys()),
         "git_branch": branch,
         "packages": pkgs,
         "package": str(args.pkg.as_posix()),

@@ -23,6 +23,7 @@
   ],
   "notes": [
     "Baseline snapshot; every branch uses the same analyzer with a different metric_keys set.",
-    "JavaScript twin package src/complexity_sample_js is included for multilingual white-box snapshots."
+    "JavaScript twin package src/complexity_sample_js is included for multilingual white-box snapshots.",
+    "Additional twins: TypeScript (src/complexity_sample_ts), C# (src/complexity_sample_cs), Java (src/complexity_sample_java), Go (src/complexity_sample_go)."
   ]
 }
