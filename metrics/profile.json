@@ -1,28 +1,33 @@
 {
   "branch_label": "dev",
-  "metric_profile": "integration_duplicate_surface",
+  "metric_profile": "performance_static_surface",
   "metric_focus": [
-    "cross-file duplicate line clusters",
-    "aggregate decision pressure",
-    "raw comment and LOC signals"
+    "cyclomatic performance hotspots",
+    "nested lexical loop depth (Big-O-ish signal)",
+    "SQLite / ORM-shaped N+1 patterns",
+    "large allocations inside loops",
+    "threaded mutation without synchronization",
+    "legacy duplicate-line/decision-pressure baselines"
   ],
   "metric_keys": [
-    "duplicate_line_cluster_score",
+    "cyclomatic_performance_hotspot_count",
+    "max_nested_loop_depth",
+    "nested_loop_deep_site_total",
+    "n_plus_one_query_pattern_count",
+    "large_allocation_in_loop_count",
+    "race_condition_risk_count",
+    "max_cyclomatic_complexity",
     "total_decision_points",
+    "duplicate_line_cluster_score",
     "lines_of_code_physical",
     "lines_of_code_logical",
-    "comment_line_count",
-    "comment_density",
     "function_count",
-    "file_count",
-    "avg_cyclomatic_complexity",
-    "max_cyclomatic_complexity",
-    "sum_cyclomatic_complexity"
+    "file_count"
   ],
   "notes": [
-    "Dev stresses duplication-style white-box signals alongside branch/decision totals.",
-    "Includes an intentional mirrored pricing block to lift duplicate_line_cluster_score.",
-    "JavaScript twin package src/complexity_sample_js is included for multilingual white-box snapshots.",
-    "Additional twins: TypeScript (src/complexity_sample_ts), C# (src/complexity_sample_cs), Java (src/complexity_sample_java), Go (src/complexity_sample_go)."
+    "Adds src/performance_risk_lab Python samples for repeatable perf-static dimensions.",
+    "Regenerate snapshots with `python scripts/whitebox_metrics.py --root . -o metrics/whitebox_report.json`.",
+    "Non-Python twins still surface heuristic perf hints (loops/queries/memory/concurrency proxies).",
+    "Multilingual mirrors remain under complexity_sample_* for cyclomatic/decision deltas."
   ]
 }
