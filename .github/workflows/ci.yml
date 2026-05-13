@@ -28,8 +28,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile metrics script
-        run: python -m py_compile scripts/whitebox_metrics.py
+      - name: Compile metrics scripts
+        run: |
+          python -m py_compile scripts/whitebox_metrics.py
+          python -m py_compile scripts/platform_dependency_metrics.py
+
+      - name: Install package + analysis tools
+        run: |
+          python -m pip install -U pip
+          python -m pip install ".[dev]"
+
+      - name: Platform dependency metrics (bundle, deps, imports, cycles, build time)
+        run: python scripts/platform_dependency_metrics.py --root .
 
       - name: Run whitebox metrics (no benchmark fixture)
         run: python scripts/whitebox_metrics.py --root .
