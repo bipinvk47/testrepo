@@ -27,6 +27,7 @@
   "notes": [
     "Adds src/performance_risk_lab Python samples for repeatable perf-static dimensions.",
     "Regenerate snapshots with `python scripts/whitebox_metrics.py --root . -o metrics/whitebox_report.json`.",
+    "Optional large Django clone: scripts/clone_performance_fixture.ps1 / .sh puts code in fixtures/benchmark-subject/ (gitignored); analyze with --with-benchmark-fixture.",
     "Non-Python twins still surface heuristic perf hints (loops/queries/memory/concurrency proxies).",
     "Multilingual mirrors remain under complexity_sample_* for cyclomatic/decision deltas."
   ]

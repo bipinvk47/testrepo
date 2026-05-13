@@ -1151,6 +1151,8 @@ def analyze_repo(
     root: Path,
     py_pkg: Path,
     javascript_pkg: Path | None,
+    *,
+    include_benchmark_fixture: bool = False,
 ) -> tuple[dict, dict[str, list[Path]]]:
     combined: list[FileStats] = []
     dup_targets: list[Path] = []
@@ -1162,6 +1164,10 @@ def analyze_repo(
         py_candidates.extend(sorted(py_pkg.rglob("*.py")))
     if perf_lab_root.is_dir():
         py_candidates.extend(sorted(perf_lab_root.rglob("*.py")))
+    if include_benchmark_fixture:
+        bx = root / "fixtures" / "benchmark-subject"
+        if bx.is_dir():
+            py_candidates.extend(sorted(bx.rglob("*.py")))
     py_files = sorted(dict.fromkeys(py_candidates))
     if py_files:
         by_lang["python"] = py_files
@@ -1252,6 +1258,11 @@ def main() -> None:
         help="Optional JavaScript package dir (default: src/complexity_sample_js when it exists)",
     )
     ap.add_argument("-o", "--out", type=Path, default=None, help="Write JSON file")
+    ap.add_argument(
+        "--with-benchmark-fixture",
+        action="store_true",
+        help="Include Python sources under fixtures/benchmark-subject/ (clone Django via scripts/clone_performance_fixture.ps1/.sh)",
+    )
     args = ap.parse_args()
 
     root = args.root.resolve()
@@ -1271,7 +1282,28 @@ def main() -> None:
     metric_keys = profile.get("metric_keys") or list(_ALL_METRIC_KEYS)
 
     branch = profile.get("branch_label") or _git_branch(root)
-    full, by_lang_files = analyze_repo(root, py_pkg, javascript_pkg)
+    bx_root = root / "fixtures" / "benchmark-subject"
+    benchmark_loaded = bool(
+        args.with_benchmark_fixture and bx_root.is_dir() and any(bx_root.rglob("*.py"))
+    )
+    if args.with_benchmark_fixture and bx_root.is_dir() and not benchmark_loaded:
+        print(
+            "warning: --with-benchmark-fixture set but no *.py under fixtures/benchmark-subject/. "
+            "Run scripts/clone_performance_fixture.ps1 (Windows) or scripts/clone_performance_fixture.sh.",
+            flush=True,
+        )
+    if args.with_benchmark_fixture and not bx_root.is_dir():
+        print(
+            "warning: fixtures/benchmark-subject/ does not exist yet. Clone with scripts/clone_performance_fixture.ps1 or .sh.",
+            flush=True,
+        )
+
+    full, by_lang_files = analyze_repo(
+        root,
+        py_pkg,
+        javascript_pkg,
+        include_benchmark_fixture=args.with_benchmark_fixture,
+    )
     scores = {k: v for k, v in full.items() if k != "by_file"}
 
     by_language: dict[str, dict] = {}
@@ -1310,9 +1342,13 @@ def main() -> None:
     go_root = root / "src" / "complexity_sample_go"
     if go_root.is_dir():
         pkgs["go"] = _rel_posix(go_root, root)
+    if benchmark_loaded:
+        pkgs["benchmark_fixture"] = _rel_posix(bx_root, root)
 
     report = {
         "schema_version": 3,
+        "benchmark_fixture_requested": bool(args.with_benchmark_fixture),
+        "benchmark_fixture_loaded": benchmark_loaded,
         "languages": sorted(by_lang_files.keys()),
         "git_branch": branch,
         "packages": pkgs,
