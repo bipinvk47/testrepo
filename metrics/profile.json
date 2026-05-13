@@ -1,21 +1,34 @@
 {
-  "branch_label": "feature/alpha-branch",
-  "metric_profile": "readability_lightweight",
+  "branch_label": "dev",
+  "metric_profile": "performance_static_surface",
   "metric_focus": [
-    "readability proxy (lower complexity wins)",
-    "nesting depth averages",
-    "logical LOC and function inventory only"
+    "cyclomatic performance hotspots",
+    "nested lexical loop depth (Big-O-ish signal)",
+    "SQLite / ORM-shaped N+1 patterns",
+    "large allocations inside loops",
+    "threaded mutation without synchronization",
+    "legacy duplicate-line/decision-pressure baselines"
   ],
   "metric_keys": [
-    "readability_proxy_score",
-    "avg_cyclomatic_complexity",
-    "max_nesting_depth",
-    "avg_max_nesting_per_function",
+    "cyclomatic_performance_hotspot_count",
+    "max_nested_loop_depth",
+    "nested_loop_deep_site_total",
+    "n_plus_one_query_pattern_count",
+    "large_allocation_in_loop_count",
+    "race_condition_risk_count",
+    "max_cyclomatic_complexity",
+    "total_decision_points",
+    "duplicate_line_cluster_score",
+    "lines_of_code_physical",
     "lines_of_code_logical",
     "function_count",
     "file_count"
   ],
   "notes": [
-    "Alpha rewrites the tiered discount path to reduce branching; report omits halstead/duplicate clusters."
+    "Adds src/performance_risk_lab Python samples for repeatable perf-static dimensions.",
+    "Regenerate snapshots with `python scripts/whitebox_metrics.py --root . -o metrics/whitebox_report.json`.",
+    "Optional large Django clone: scripts/clone_performance_fixture.ps1 / .sh puts code in fixtures/benchmark-subject/ (gitignored); analyze with --with-benchmark-fixture.",
+    "Non-Python twins still surface heuristic perf hints (loops/queries/memory/concurrency proxies).",
+    "Multilingual mirrors remain under complexity_sample_* for cyclomatic/decision deltas."
   ]
 }

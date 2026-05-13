@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "complexity-sample"
 version = "0.1.0"
-description = "Sample Python code for static analysis demos (complexity and duplication)."
+description = "Multilingual complexity samples plus a Python performance-risk lab for static benchmarks (loops, SQLite N+1, allocations, threads, hotspots)."
 requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
