@@ -26,3 +26,7 @@ htmlcov/
 .vscode/
 *.swp
 .DS_Store
+
+# Optional large clone for performance / static-analysis stress (see fixtures/benchmark-subject/README.txt)
+fixtures/benchmark-subject/*
+!fixtures/benchmark-subject/README.txt
